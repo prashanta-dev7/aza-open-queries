@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/backend.js": {
-      "runtime": "nodejs",
+      "runtime": "nodejs20.x",
       "includeFiles": "data/**"
     }
   }
