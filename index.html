@@ -2,187 +2,65 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Aza — Open Queries (WhatsApp)</title>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2.0.6/css/pico.min.css">
-  <style>
-    :root {
-      --brand:#b60e2a; /* Aza-ish accent */
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Aza — Open Queries</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: '#b60e2a',        /* Aza-ish accent */
+            brandMuted: '#fbe9ec',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace','SFMono-Regular','Menlo','Monaco','Consolas','monospace'],
+          }
+        }
+      },
+      darkMode: 'media'
     }
-    header { margin: 1.5rem 0 1rem; }
-    h1 { font-weight: 700; letter-spacing: .2px; }
-    .accent { color: var(--brand); }
-    .muted { opacity: .7; }
-    .grid { display: grid; gap: 1rem; }
-    @media (min-width: 900px){ .grid-2 { grid-template-columns: 1fr 1fr; } }
-    table { font-variant-numeric: tabular-nums; }
-    .badge { padding: .15rem .5rem; border-radius: 999px; font-size: .75rem; }
-    .badge-open { background: #fff3cd; color: #8a6d3b; }
-    .badge-breached { background: #fde2e1; color: #a12622; }
-    .badge-closed { background: #e7f6ed; color: #216e3a; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    .footer { margin: 2rem 0; font-size: .9rem; }
-    .sr { position: absolute; left: -9999px; }
+  </script>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .dropzone.dragover { border-color: #b60e2a; background-color: #fef2f3; }
+    .status-pill { @apply px-2 py-1 rounded-full text-xs font-medium; }
+    .status-open { background:#fff3cd; color:#7a5b00; }
+    .status-breached { background:#fde2e1; color:#8a1c1c; }
+    .status-closed { background:#e7f6ed; color:#216e3a; }
+    .btn { @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-semibold transition; }
+    .btn-primary { background:#b60e2a; color:#fff; }
+    .btn-primary:hover { filter: brightness(0.95); }
+    .btn-secondary { @apply border border-gray-300 bg-white text-gray-900; }
+    .btn-ghost { @apply text-gray-700 hover:bg-gray-100; }
+    .card { @apply rounded-2xl border border-gray-200 bg-white/80 backdrop-blur p-5; }
+    .stat { @apply text-2xl font-bold; }
+    .label { @apply text-sm text-gray-600; }
+    .sticky-head th { position: sticky; top: 0; background: white; z-index: 1; }
   </style>
 </head>
-<body>
-  <main class="container">
-    <header>
-      <h1 class="accent">Open Queries — WhatsApp Parser</h1>
-      <p class="muted">Upload the latest WhatsApp chat export (<span class="mono">.txt</span>). Mapping is prebundled from repo <span class="mono">/data</span>. No DB.</p>
-    </header>
-
-    <article>
-      <form id="form" onsubmit="return false">
-        <div class="grid grid-2">
-          <div>
-            <label for="chat">WhatsApp chat export (.txt)</label>
-            <input type="file" id="chat" name="chat" accept=".txt" required>
-            <small>Export from WhatsApp (without media). Android/iOS formats supported.</small>
-          </div>
-
-          <div>
-            <label for="cutoff">Cutoff date (only parse messages after this)</label>
-            <input type="date" id="cutoff" name="cutoff" required>
-            <small>Default: 2025-09-10 (IST)</small>
-          </div>
-        </div>
-
-        <div class="grid grid-2" style="margin-top: .5rem;">
-          <div>
-            <label for="sla">SLA in minutes</label>
-            <input type="number" id="sla" name="sla" min="1" step="1" value="120" required>
-            <small>Breached if no assigned-merch reply after last CS-like message within SLA.</small>
-          </div>
-          <div>
-            <label>&nbsp;</label>
-            <button id="processBtn" type="button">Process New Messages</button>
-          </div>
-        </div>
-      </form>
-    </article>
-
-    <article id="resultsCard" style="display:none;">
-      <header>
-        <strong>Results</strong>
-        <span id="summary" class="muted" style="margin-left:.5rem;"></span>
-        <div style="float:right;">
-          <button id="downloadCsvBtn" class="secondary">Download CSV</button>
-        </div>
-      </header>
-
-      <div class="overflow-auto">
-        <table id="resultsTable">
-          <thead>
-            <tr>
-              <th>PID</th>
-              <th>Designer</th>
-              <th>Assigned Merch</th>
-              <th>Status</th>
-              <th>Age (hh:mm)</th>
-              <th>Latest CS Message</th>
-              <th>CS Time</th>
-              <th>Last Assigned Merch Reply</th>
-              <th>Reply Time</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+<body class="bg-gray-50 text-gray-900 font-sans">
+  <!-- Header -->
+  <header class="border-b border-gray-200 bg-white">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="h-8 w-8 rounded-lg bg-brand"></div>
+        <h1 class="text-lg font-semibold tracking-tight">Aza — Open Queries <span class="text-brand">MVP</span></h1>
       </div>
-    </article>
+      <a href="#" class="text-sm text-gray-500 hover:text-gray-700">Docs</a>
+    </div>
+  </header>
 
-    <p class="footer muted">Tip: keep your mapping CSVs in the repo under <span class="mono">/data/</span>. The API auto-loads all files matching <span class="mono">dump_*.csv</span>.</p>
-  </main>
+  <!-- Main -->
+  <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left: Controls -->
+    <section class="lg:col-span-1 space-y-6">
+      <div class="card">
+        <h2 class="text-base font-semibold mb-4">Upload & Settings</h2>
 
-  <script>
-    // Defaults
-    const cutoffInput = document.getElementById('cutoff');
-    cutoffInput.value = '2025-09-10';
-
-    const processBtn = document.getElementById('processBtn');
-    const resultsCard = document.getElementById('resultsCard');
-    const resultsTableBody = document.querySelector('#resultsTable tbody');
-    const downloadCsvBtn = document.getElementById('downloadCsvBtn');
-    const summarySpan = document.getElementById('summary');
-
-    let lastCsvBlobUrl = null;
-
-    processBtn.addEventListener('click', async () => {
-      const chatFile = document.getElementById('chat').files[0];
-      if (!chatFile) { alert('Please choose the WhatsApp .txt file.'); return; }
-
-      const cutoffDate = document.getElementById('cutoff').value || '2025-09-10';
-      const slaMinutes = parseInt(document.getElementById('sla').value || '120', 10);
-
-      const chatText = await chatFile.text();
-
-      processBtn.setAttribute('aria-busy', 'true');
-      try {
-        const res = await fetch('/api/backend', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatText, cutoffDate, slaMinutes })
-        });
-
-        if (!res.ok) {
-          const txt = await res.text();
-          throw new Error(txt || `Request failed: ${res.status}`);
-        }
-
-        const { rows, csv } = await res.json();
-
-        // update table
-        resultsTableBody.innerHTML = '';
-        const fmt = (s)=> s==null ? '' : s;
-        const badge = (status) => {
-          const s = (status||'').toLowerCase();
-          const cls = s.includes('breach') ? 'badge-breached' : (s.includes('open') ? 'badge-open' : 'badge-closed');
-          return `<span class="badge ${cls}">${status}</span>`;
-        };
-        rows.forEach(r => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="mono">${fmt(r.pid)}</td>
-            <td>${fmt(r.designer)}</td>
-            <td>${fmt(r.assigned_merch)}</td>
-            <td>${badge(fmt(r.status))}</td>
-            <td class="mono">${fmt(r.age_hhmm)}</td>
-            <td>${fmt(r.latest_cs_preview || '').replace(/</g,'&lt;')}</td>
-            <td class="mono">${fmt(r.cs_ts_ist)}</td>
-            <td>${fmt(r.last_merch_preview || '').replace(/</g,'&lt;')}</td>
-            <td class="mono">${fmt(r.merch_ts_ist)}</td>
-            <td>${fmt(r.notes || '')}</td>
-          `;
-          resultsTableBody.appendChild(tr);
-        });
-
-        summarySpan.textContent = `Total: ${rows.length} • Open: ${rows.filter(x => (x.status||'').toLowerCase().startsWith('open')).length}`;
-
-        // CSV download
-        if (lastCsvBlobUrl) URL.revokeObjectURL(lastCsvBlobUrl);
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-        lastCsvBlobUrl = URL.createObjectURL(blob);
-
-        downloadCsvBtn.onclick = () => {
-          const a = document.createElement('a');
-          a.href = lastCsvBlobUrl;
-          a.download = `open_queries_${new Date().toISOString().slice(0,10)}.csv`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-        };
-
-        resultsCard.style.display = '';
-      } catch (err) {
-        console.error(err);
-        alert('Error: ' + err.message);
-      } finally {
-        processBtn.removeAttribute('aria-busy');
-      }
-    });
-  </script>
-</body>
-</html>
-
+        <!-- Dropzone -->
+        <div id="dropzone" class="dropzone border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer">
+          <input id="chat" type="file" accept=".txt" class="sr-only" />
+          <p class="font-medium">Drag & drop WhatsApp <code class="
