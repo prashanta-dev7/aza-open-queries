@@ -1,6 +1,6 @@
 // api/backend.js
 // Vercel — Node runtime so we can read /data/*.csv
-export const config = { runtime: 'nodejs18.x' };
+export const config = { runtime: 'nodejs' };
 
 import fs from 'fs';
 import path from 'path';
@@ -46,7 +46,7 @@ function loadMappingFromCsvText(csvText) {
   for (let r = 1; r < rows.length; r++) {
     const cols = rows[r];
     const rawPid = (idx.pid >= 0 ? (cols[idx.pid] || '') : '').toString().trim();
-    const pid = (rawPid.match(/\b(\d{6})\b/) || [])[1] || ''; // extract exact 6-digit
+    const pid = (rawPid.match(/\b(\d{6})\b/) || [])[1] || ''; // exact 6-digit
     if (!pid) continue;
     const designer = idx.designer >= 0 ? (cols[idx.designer] || '').toString().trim() : '';
     const merch = idx.merch >= 0 ? (cols[idx.merch] || '').toString().trim() : '';
