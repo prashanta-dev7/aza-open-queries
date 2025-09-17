@@ -3,23 +3,24 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Aza — Open Queries (WhatsApp, 100% Client-Side)</title>
+<title>Aza — Open Queries (WhatsApp, Timeline View)</title>
 <style>
   :root{--bg:#f7f7f8;--card:#fff;--text:#111827;--muted:#6b7280;--border:#e5e7eb;--brand:#b60e2a;--ok:#1f6f37;--warn:#7a5b00;--breach:#8a1c1c;--table-head:#fafafa;--radius:14px;--shadow:0 6px 20px rgba(17,24,39,.06)}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-  .container{max-width:1100px;margin:0 auto;padding:24px}
+  .container{max-width:1200px;margin:0 auto;padding:24px}
   header{margin-bottom:18px}
   h1{font-size:20px;margin:0}.brand-dot{width:12px;height:12px;border-radius:50%;background:var(--brand);display:inline-block;margin-right:8px}
-  .muted{color:var(--muted)}.row{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}
+  .muted{color:var(--muted)}
+  .row{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}
   @media(max-width:820px){.row{grid-template-columns:1fr}}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px}
   .card-body{padding:16px}.card-title{font-weight:600;margin:0 0 10px}
   label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
   input[type=file],input[type=date],input[type=number]{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;outline:none}
   .btn{appearance:none;border:0;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
   .btn-primary{background:var(--brand);color:#fff}.btn-secondary{background:#fff;border:1px solid var(--border)}
-  .toolbar{display:flex;gap:8px;align-items:center;margin-top:8px}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
   .table-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff}
   table{width:100%;border-collapse:collapse;font-size:13px}thead th{background:var(--table-head);position:sticky;top:0}
   th,td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
@@ -30,37 +31,41 @@
   .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
   .stat{padding:12px;border:1px solid var(--border);border-radius:12px;background:#fff}
   .stat .k{font-size:20px;font-weight:800}.stat .l{font-size:12px;color:var(--muted)}
+  .opts{display:flex;gap:14px;align-items:center;margin-top:8px;flex-wrap:wrap}
+  .opts label{display:flex;align-items:center;gap:6px;font-size:13px;margin:0;color:var(--text)}
+  .timeline-card{margin-bottom:12px;border:1px solid var(--border);border-radius:12px;background:#fff}
+  .timeline-header{padding:10px 14px;background:var(--table-head);cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+  .timeline-body{padding:12px;display:none}
+  .event{margin-bottom:8px;padding:8px 10px;border-left:3px solid var(--border)}
+  .event.query{border-color:var(--brand);background:#fff8f9}
+  .event.reply{border-color:var(--ok);background:#f0fdf4}
+  .event.breach{border-color:var(--breach);background:#fef2f2}
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <h1><span class="brand-dot"></span>Aza — Open Queries (MVP, No Backend)</h1>
+    <h1><span class="brand-dot"></span>Aza — Open Queries (Timeline + Summary)</h1>
     <div class="muted" style="margin-top:4px">
-      Upload WhatsApp <span class="mono">.txt</span> and Mapping <span class="mono">.csv</span>. Processed entirely in your browser.
+      Upload WhatsApp <span class="mono">.txt</span> and Mapping <span class="mono">.csv</span>. Everything runs in your browser.
     </div>
   </header>
 
-  <div class="card" style="margin-bottom:12px">
+  <div class="card">
     <div class="card-body">
       <div class="row">
         <div>
           <label for="chat">WhatsApp chat export (.txt)</label>
           <input type="file" id="chat" accept=".txt" required />
-          <div class="muted" style="font-size:12px;margin-top:6px">Android/iOS exports supported.</div>
         </div>
         <div>
           <label for="mapping">PID → Designer → Merch mapping (.csv)</label>
           <input type="file" id="mapping" accept=".csv" required />
-          <div class="muted" style="font-size:12px;margin-top:6px">
-            Headers (case-insensitive): <span class="mono">productID, designerName, merchandiserName</span> (fallbacks also supported).
-          </div>
         </div>
         <div class="row" style="gap:12px">
           <div>
             <label for="cutoff">Cutoff date (IST)</label>
-            <input type="date" id="cutoff" required />
-            <div class="muted" style="font-size:12px;margin-top:6px">Default: 2025-09-10</div>
+            <input type="date" id="cutoff" required value="2025-09-10" />
           </div>
           <div>
             <label for="sla">SLA (minutes)</label>
@@ -68,28 +73,27 @@
           </div>
         </div>
       </div>
-
+      <div class="opts">
+        <label><input type="checkbox" id="requireMerchReply" checked /> Reply must be by assigned merch</label>
+        <label><input type="checkbox" id="strictPid" /> Strict PID detection</label>
+      </div>
       <div class="toolbar">
         <button id="processBtn" class="btn btn-primary">Process</button>
         <button id="downloadCsvBtn" class="btn btn-secondary" disabled>Download CSV</button>
         <span id="status" class="muted"></span>
       </div>
-
       <div class="stats">
-        <div class="stat"><div class="k" id="statTotal">0</div><div class="l">Total</div></div>
+        <div class="stat"><div class="k" id="statTotal">0</div><div class="l">Total Breached</div></div>
         <div class="stat"><div class="k" id="statOpen">0</div><div class="l">Open</div></div>
-        <div class="stat"><div class="k" id="statBreached">0</div><div class="l">Breached</div></div>
+        <div class="stat"><div class="k" id="statClosed">0</div><div class="l">Closed (Breached)</div></div>
       </div>
     </div>
   </div>
 
   <div class="card">
     <div class="card-body">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <div class="card-title">Results</div>
-        <div id="summary" class="muted" style="font-size:13px"></div>
-      </div>
-      <div class="table-wrap" style="max-height:65vh;overflow:auto">
+      <div class="card-title">Summary Table (latest breached case per PID)</div>
+      <div class="table-wrap" style="max-height:50vh;overflow:auto">
         <table>
           <thead>
             <tr>
@@ -97,10 +101,10 @@
               <th>Designer</th>
               <th>Assigned Merch</th>
               <th>Status</th>
-              <th>First CS Message</th>
-              <th>First CS Time</th>
-              <th>Latest CS Message</th>
-              <th>CS Time</th>
+              <th>First Query</th>
+              <th>First Time</th>
+              <th>Latest Msg</th>
+              <th>Latest Time</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -108,260 +112,299 @@
       </div>
     </div>
   </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="card-title">Timeline View (grouped by PID)</div>
+      <div id="timelines"></div>
+    </div>
+  </div>
 </div>
 
 <script>
-  const cutoffInput = document.getElementById('cutoff'); cutoffInput.value = '2025-09-10';
-  const processBtn = document.getElementById('processBtn');
-  const downloadBtn = document.getElementById('downloadCsvBtn');
-  const statusSpan = document.getElementById('status');
-  const tbody = document.getElementById('tbody');
-  const summarySpan = document.getElementById('summary');
-  const statTotal = document.getElementById('statTotal');
-  const statOpen = document.getElementById('statOpen');
-  const statBreached = document.getElementById('statBreached');
+function esc(s){ return (s ?? '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function stripBOM(s){ return (s && s.charCodeAt(0)===0xFEFF) ? s.slice(1) : s; }
 
-  function esc(s){ return (s ?? '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
-  function stripBOM(s){ return (s && s.charCodeAt(0)===0xFEFF) ? s.slice(1) : s; }
+// CSV parsing
+function parseCsv(text){
+  text = stripBOM(text||'');
+  const rows=[]; let i=0, field='', row=[], inQ=false;
+  while(i<text.length){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i+=2; continue; } inQ=false; i++; continue; }
+      field+=c; i++; continue;
+    } else {
+      if(c==='"'){ inQ=true; i++; continue; }
+      if(c===','){ row.push(field); field=''; i++; continue; }
+      if(c==='\r'){ i++; continue; }
+      if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; i++; continue; }
+      field+=c; i++;
+    }
+  }
+  if(field.length||row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
 
-  // CSV parser (robust enough for our mapping file)
-  function parseCsv(text){
-    text = stripBOM(text||'');
-    const rows = []; let i=0, field='', row=[], inQ=false;
-    while(i<text.length){
-      const c = text[i];
-      if(inQ){
-        if(c === '"'){ if(text[i+1] === '"'){ field += '"'; i+=2; continue; } inQ=false; i++; continue; }
-        field += c; i++; continue;
-      }else{
-        if(c === '"'){ inQ=true; i++; continue; }
-        if(c === ','){ row.push(field); field=''; i++; continue; }
-        if(c === '\r'){ i++; continue; }
-        if(c === '\n'){ row.push(field); rows.push(row); row=[]; field=''; i++; continue; }
-        field += c; i++;
+function loadMappingFromCsvText(csvText){
+  const rows=parseCsv(csvText); if(!rows.length) return new Map();
+  const header=rows[0].map(h=>(stripBOM(h||'')).toLowerCase().trim());
+  // Expecting productID, designerName, merchandiserName (case-insensitive)
+  const idx={
+    pid: header.indexOf('productid')!==-1 ? header.indexOf('productid')
+        : header.indexOf('pid')!==-1 ? header.indexOf('pid') : header.indexOf('product_id'),
+    designer: header.indexOf('designername')!==-1 ? header.indexOf('designername')
+            : header.indexOf('designer')!==-1 ? header.indexOf('designer') : header.indexOf('designer_name'),
+    merch: header.indexOf('merchandisername')!==-1 ? header.indexOf('merchandisername')
+         : header.indexOf('merch')!==-1 ? header.indexOf('merch') : header.indexOf('merch_name')
+  };
+  const map=new Map();
+  for(let r=1;r<rows.length;r++){
+    const cols=rows[r];
+    const rawPid=(idx.pid>=0?(cols[idx.pid]||''):'').toString().trim();
+    const pid=(rawPid.match(/\b(\d{6})\b/)||[])[1]||'';
+    if(!pid) continue;
+    const designer=idx.designer>=0?(cols[idx.designer]||'').toString().trim():'';
+    const merch=idx.merch>=0?(cols[idx.merch]||'').toString().trim():'';
+    if(!map.has(pid)) map.set(pid,{designer,merch});
+  }
+  return map;
+}
+
+// WhatsApp parsing
+const RE_ANDROID=/^(\d{1,2})\/(\d{1,2})\/(\d{2,4}),\s+(\d{1,2}):(\d{2})\s*(am|pm)?\s*-\s([^:]+):\s([\s\S]*)$/i;
+const RE_IOS=/^\[(\d{1,2})\/(\d{1,2})\/(\d{2,4}),\s+(\d{1,2}):(\d{2})\s*(am|pm)?\]\s([^:]+):\s([\s\S]*)$/i;
+
+function parseIstDate(d,m,y,hh,mm,ampm){
+  const year=(String(y).length===2)?(parseInt(y,10)+2000):parseInt(y,10);
+  let hour=parseInt(hh,10); const minute=parseInt(mm,10);
+  if(ampm){const ap=ampm.toLowerCase(); if(ap==='pm'&&hour<12)hour+=12; if(ap==='am'&&hour===12)hour=0;}
+  return new Date(`${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}T${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00.000+05:30`);
+}
+function fmtIst(dt){if(!dt)return'';const p=n=>String(n).padStart(2,'0');return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())} IST`;}
+
+// PID extraction
+function extractPids(text,strict){
+  const out=new Set();
+  const re = strict
+    ? /\bpid\b[^\d]{0,6}(\d{6})\b/gi    // must have "pid" near number
+    : /\b(?:pid\s*[:\-]?\s*)?(\d{6})\b/gi; // bare 6-digit allowed
+  let m; while((m=re.exec(text))!==null) out.add(m[1]); return [...out];
+}
+
+// Fuzzy merch match
+function senderMatchesAssigned(sender, merch){
+  if(!sender || !merch) return false;
+  const s = sender.toLowerCase();
+  const tokens = merch.toLowerCase().split(/[^a-z0-9]+/).filter(t=>t.length>=3);
+  let hits=0; for(const t of tokens){ if(s.includes(t)) hits++; }
+  if(tokens.length<=1) return hits>=1;
+  return hits>=2; // require 2+ token hits for multi-word names
+}
+
+// Build all breached/open-breached cycles for a PID timeline
+function buildBreachedCycles(arr, now, slaMs, requireMerch, merchName){
+  const cycles=[]; let i=0;
+  while(i<arr.length){
+    const start=arr[i]; let reply=null; let j=i+1;
+    while(j<arr.length){
+      const m=arr[j];
+      if(m.sender===start.sender){ j++; continue; } // same sender doesn't close
+      if(requireMerch && merchName){
+        if(!senderMatchesAssigned(m.sender, merchName)){ j++; continue; }
+      }
+      reply=m; break; // qualifying reply
+    }
+    if(reply){
+      const gap=reply.ts-start.ts;
+      if(gap>slaMs) cycles.push({status:'Closed — Breached', start, reply});
+      i=j+1; // next cycle must start after the reply
+    }else{
+      const age=now-start.ts;
+      if(age>slaMs) cycles.push({status:'Open — Breached', start});
+      break; // end of timeline
+    }
+  }
+  return cycles;
+}
+
+function toCsv(rows){
+  const headers=['pid','designer','assigned_merch','status','first_cs_preview','first_cs_ts_ist','latest_cs_preview','cs_ts_ist'];
+  const escCsv=v=>{const s=(v??'').toString();return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;};
+  return [headers.join(',')].concat(rows.map(r=>headers.map(h=>escCsv(r[h])).join(','))).join('\n');
+}
+
+function renderTimeline(pid,meta,cycles){
+  const card=document.createElement('div'); card.className='timeline-card';
+  const header=document.createElement('div'); header.className='timeline-header';
+  header.innerHTML=`<div><b>PID ${esc(pid)}</b> • ${esc(meta.designer||'')} • Assigned: ${esc(meta.merch||'')}</div><div class="muted">${esc(cycles[cycles.length-1].status)}</div>`;
+  const body=document.createElement('div'); body.className='timeline-body';
+  cycles.forEach(c=>{
+    const ev1=document.createElement('div'); ev1.className='event query';
+    ev1.innerHTML=`<b>Query</b> by ${esc(c.start.sender)} — ${esc(c.start.text.slice(0,160))}<div class="muted">${esc(fmtIst(c.start.ts))}</div>`;
+    body.appendChild(ev1);
+    if(c.reply){
+      const ev2=document.createElement('div'); ev2.className='event reply';
+      ev2.innerHTML=`<b>Reply</b> by ${esc(c.reply.sender)} — ${esc(c.reply.text.slice(0,160))}<div class="muted">${esc(fmtIst(c.reply.ts))}</div>`;
+      body.appendChild(ev2);
+    }
+    if(c.status.includes('Breached')){
+      const ev3=document.createElement('div'); ev3.className='event breach'; ev3.innerHTML=`<b>${esc(c.status)}</b>`; body.appendChild(ev3);
+    }
+  });
+  header.addEventListener('click',()=>{body.style.display=body.style.display==='block'?'none':'block';});
+  card.appendChild(header); card.appendChild(body);
+  return card;
+}
+
+document.getElementById('processBtn').addEventListener('click',async()=>{
+  const chatFile=document.getElementById('chat').files[0];
+  const mapFile=document.getElementById('mapping').files[0];
+  if(!chatFile||!mapFile){alert('Please choose both files');return;}
+
+  const requireMerch=document.getElementById('requireMerchReply').checked;
+  const strictPid=document.getElementById('strictPid').checked;
+  const slaMinutes=parseInt(document.getElementById('sla').value||'60',10);
+  const cutoffDate=document.getElementById('cutoff').value || '2025-09-10';
+  const cutoff=new Date(`${cutoffDate}T00:00:00.000+05:30`);
+  const slaMs=Math.max(1,slaMinutes)*60*1000;
+  const now=new Date();
+
+  const statusSpan=document.getElementById('status');
+  const tbody=document.getElementById('tbody');
+  const timelinesDiv=document.getElementById('timelines');
+  const statTotal=document.getElementById('statTotal');
+  const statOpen=document.getElementById('statOpen');
+  const statClosed=document.getElementById('statClosed');
+  const downloadBtn=document.getElementById('downloadCsvBtn');
+
+  statusSpan.textContent='Processing…';
+  tbody.innerHTML=''; timelinesDiv.innerHTML=''; downloadBtn.disabled=true;
+
+  try{
+    const [chatText,mappingCsv]=await Promise.all([chatFile.text(),mapFile.text()]);
+    const PID_MAP=loadMappingFromCsvText(mappingCsv);
+
+    // Parse chat
+    const msgs=[];
+    for(const raw of chatText.split(/\r?\n/)){
+      let m=RE_ANDROID.exec(raw);
+      if(m){
+        const [,d,mo,y,hh,mm,ampm,sender,text]=m;
+        const ts=parseIstDate(d,mo,y,hh,mm,ampm||'');
+        if(ts>cutoff) msgs.push({ts,sender:(sender||'').trim(),text:(text||'').trim()});
+        continue;
+      }
+      m=RE_IOS.exec(raw);
+      if(m){
+        const [,d,mo,y,hh,mm,ampm,sender,text]=m;
+        const ts=parseIstDate(d,mo,y,hh,mm,ampm||'');
+        if(ts>cutoff) msgs.push({ts,sender:(sender||'').trim(),text:(text||'').trim()});
       }
     }
-    if(field.length || row.length) { row.push(field); rows.push(row); }
-    return rows;
-  }
 
-  function loadMappingFromCsvText(csvText){
-    const rows = parseCsv(csvText);
-    if(!rows.length) return new Map();
-    const header = rows[0].map(h => (stripBOM(h||'')).toLowerCase().trim());
-
-    const idx = {
-      pid:
-        header.indexOf('pid') !== -1 ? header.indexOf('pid') :
-        header.indexOf('product_id') !== -1 ? header.indexOf('product_id') :
-        header.indexOf('productid'),
-      designer:
-        header.indexOf('designer_name') !== -1 ? header.indexOf('designer_name') :
-        header.indexOf('designer') !== -1 ? header.indexOf('designer') :
-        header.indexOf('designername'),
-      merch:
-        header.indexOf('merch_name') !== -1 ? header.indexOf('merch_name') :
-        header.indexOf('merch') !== -1 ? header.indexOf('merch') :
-        header.indexOf('merchandiser') !== -1 ? header.indexOf('merchandiser') :
-        header.indexOf('merchandisername'),
-    };
-
-    const map = new Map();
-    for(let r=1;r<rows.length;r++){
-      const cols = rows[r];
-      const rawPid = (idx.pid>=0 ? (cols[idx.pid]||'') : '').toString().trim();
-      const pid = (rawPid.match(/\b(\d{6})\b/)||[])[1] || '';
-      if(!pid) continue;
-      const designer = idx.designer>=0 ? (cols[idx.designer]||'').toString().trim() : '';
-      const merch    = idx.merch>=0    ? (cols[idx.merch]||'').toString().trim()    : '';
-      if(!map.has(pid)) map.set(pid, { designer, merch });
-    }
-    return map;
-  }
-
-  // WhatsApp parsing
-  const RE_ANDROID = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4}),\s+(\d{1,2}):(\d{2})\s*(am|pm)?\s*-\s([^:]+):\s([\s\S]*)$/i;
-  const RE_IOS     = /^\[(\d{1,2})\/(\d{1,2})\/(\d{2,4}),\s+(\d{1,2}):(\d{2})\s*(am|pm)?\]\s([^:]+):\s([\s\S]*)$/i;
-
-  function parseIstDate(d,m,y,hh,mm,ampm){
-    const year = (String(y).length===2) ? (parseInt(y,10)+2000) : parseInt(y,10);
-    let hour = parseInt(hh,10); const minute=parseInt(mm,10);
-    if(ampm){ const ap=ampm.toLowerCase(); if(ap==='pm'&&hour<12) hour+=12; if(ap==='am'&&hour===12) hour=0; }
-    return new Date(`${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}T${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00.000+05:30`);
-  }
-  function fmtIst(dt){ if(!dt) return ''; const p=n=>String(n).padStart(2,'0');
-    return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())} IST`; }
-
-  function extractPids(text){
-    const out=new Set(); const re=/\b(?:pid\s*[:\-]?\s*)?(\d{6})\b/gi; let m;
-    while((m=re.exec(text))!==null) out.add(m[1]); return Array.from(out);
-  }
-
-  function buildPidTimelines(msgs){
-    const map=new Map();
+    // Group by PID
+    const byPid=new Map();
     for(const m of msgs){
-      const pids=extractPids(m.text);
+      const pids=extractPids(m.text, strictPid);
       if(!pids.length) continue;
       for(const pid of pids){
-        if(!map.has(pid)) map.set(pid, []);
-        map.get(pid).push(m);
+        if(!byPid.has(pid)) byPid.set(pid,[]);
+        byPid.get(pid).push(m);
       }
     }
-    for(const arr of map.values()) arr.sort((a,b)=>a.ts-b.ts);
-    return map;
-  }
+    for(const arr of byPid.values()) arr.sort((a,b)=>a.ts-b.ts);
 
-  // SLA: "reply" counts only if next mention is from a DIFFERENT sender
-  function summarizeRows(pidMap, timelines, now, slaMinutes){
-    const rows=[]; const slaMs=Math.max(1, parseInt(slaMinutes||60,10))*60*1000;
-    let matchedPidCount=0;
+    // Build breached cycles and latest breached row per PID
+    const summaryRows=[];
+    let openCount=0, closedBreachedCount=0;
+    for(const [pid, arr] of byPid.entries()){
+      const meta = PID_MAP.get(pid) || {designer:'', merch:''};
 
-    for(const [pid, arr] of timelines.entries()){
-      if(!arr.length) continue;
-      const meta = pidMap.get(pid) || { designer:'', merch:'' };
-      if(meta.designer || meta.merch) matchedPidCount++;
+      const cycles = buildBreachedCycles(
+        arr,
+        now,
+        slaMs,
+        (requireMerch && !!meta.merch),
+        meta.merch || ''
+      );
+      if(!cycles.length) continue; // no breaches → skip
 
-      const first = arr[0];
-      const latest = arr[arr.length-1];
-      const next = arr.length>=2 ? arr[1] : null;
+      // Timeline card
+      const card = renderTimeline(pid, meta, cycles);
+      timelinesDiv.appendChild(card);
 
-      let include=false; let status='Open';
-      if(next){
-        const gap=next.ts-first.ts;
-        if(next.sender !== first.sender){
-          if(gap>slaMs){ include=true; status='Open — Breached'; }
-          else { include=false; status='Closed'; }
-        }else{
-          const age=now-first.ts;
-          include = age>slaMs;
-          status = include ? 'Open — Breached' : 'Open';
-        }
-      }else{
-        const age=now-first.ts;
-        include = age>slaMs;
-        status = include ? 'Open — Breached' : 'Open';
-      }
-      if(!include) continue;
+      // Latest breached case for table
+      const openCycles = cycles.filter(c=>c.status.startsWith('Open'));
+      const chosen = openCycles.length
+        ? openCycles.sort((a,b)=>b.start.ts-a.start.ts)[0]
+        : cycles.sort((a,b)=>b.start.ts-a.start.ts)[0];
 
-      rows.push({
+      if(chosen.status.startsWith('Open')) openCount++; else closedBreachedCount++;
+
+      const first = chosen.start;
+      const latest = chosen.reply || arr[arr.length-1];
+      summaryRows.push({
         pid,
         designer: meta.designer || '',
         assigned_merch: meta.merch || '',
-        status,
+        status: chosen.status,
         first_cs_preview: (first.text||'').slice(0,160),
         first_cs_ts_ist: fmtIst(first.ts),
         latest_cs_preview: (latest.text||'').slice(0,160),
-        cs_ts_ist: fmtIst(latest.ts),
+        cs_ts_ist: fmtIst(latest.ts)
       });
     }
 
-    rows.sort((a,b)=>{
-      const rank = s => s.startsWith('Open — Breached') ? 0 : 1;
-      const r = rank(a.status)-rank(b.status);
+    // Sort table rows
+    summaryRows.sort((a,b)=>{
+      const rank=s=>s.startsWith('Open — Breached')?0:1;
+      const r=rank(a.status)-rank(b.status);
       if(r!==0) return r;
       return (b.first_cs_ts_ist||'').localeCompare(a.first_cs_ts_ist||'');
     });
 
-    return { rows, matchedPidCount };
-  }
-
-  function toCsv(rows){
-    const headers=['pid','designer','assigned_merch','status','first_cs_preview','first_cs_ts_ist','latest_cs_preview','cs_ts_ist'];
-    const esc=(v)=>{ const s=(v??'').toString(); return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; };
-    return [headers.join(',')].concat(rows.map(r=>headers.map(h=>esc(r[h])).join(','))).join('\n');
-  }
-
-  processBtn.addEventListener('click', async () => {
-    const chatFile = document.getElementById('chat').files[0];
-    const mapFile  = document.getElementById('mapping').files[0];
-    if (!chatFile || !mapFile) { alert('Please choose both files'); return; }
-
-    processBtn.disabled = true; downloadBtn.disabled = true; statusSpan.textContent = 'Processing…';
-    tbody.innerHTML = ''; summarySpan.textContent = '';
-
-    try {
-      const [chatTextRaw, mappingCsvRaw] = await Promise.all([chatFile.text(), mapFile.text()]);
-      const chatText = chatTextRaw;
-      const mappingCsvText = mappingCsvRaw;
-      const cutoffDate = document.getElementById('cutoff').value || '2025-09-10';
-      const slaMinutes = parseInt(document.getElementById('sla').value || '60', 10);
-      const cutoff = new Date(`${cutoffDate}T00:00:00.000+05:30`);
-
-      // Build mapping
-      const PID_MAP = loadMappingFromCsvText(mappingCsvText);
-
-      // Parse WhatsApp lines (Android & iOS), only AFTER cutoff
-      const msgs=[];
-      const lines = chatText.split(/\r?\n/);
-      for(const raw of lines){
-        let m = RE_ANDROID.exec(raw);
-        if(m){
-          const [,d,mo,y,hh,mm,ampm,sender,text]=m;
-          const ts=parseIstDate(d,mo,y,hh,mm,ampm||'');
-          if(ts>cutoff) msgs.push({ ts, sender:(sender||'').trim(), text:(text||'').trim() });
-          continue;
-        }
-        m = RE_IOS.exec(raw);
-        if(m){
-          const [,d,mo,y,hh,mm,ampm,sender,text]=m;
-          const ts=parseIstDate(d,mo,y,hh,mm,ampm||'');
-          if(ts>cutoff) msgs.push({ ts, sender:(sender||'').trim(), text:(text||'').trim() });
-        }
-      }
-
-      const timelines = buildPidTimelines(msgs);
-      const now = new Date();
-      const { rows, matchedPidCount } = summarizeRows(PID_MAP, timelines, now, slaMinutes);
-
-      // Stats
-      const total = rows.length;
-      const openCount = rows.filter(r => (r.status||'').toLowerCase().startsWith('open')).length;
-      const breachedCount = rows.filter(r => (r.status||'').toLowerCase().includes('breach')).length;
-      statTotal.textContent = total; statOpen.textContent = openCount; statBreached.textContent = breachedCount;
-
-      summarySpan.textContent = `Cutoff: ${cutoffDate} • SLA: ${slaMinutes} min • Mapping: ${PID_MAP.size} PIDs • Matched: ${matchedPidCount}`;
-
-      // Paint table
-      for(const r of rows){
-        const tr = document.createElement('tr');
-        const pillClass = r.status?.toLowerCase().includes('breach') ? 'pill-breach'
-                         : r.status?.toLowerCase().startsWith('open') ? 'pill-open'
-                         : 'pill-closed';
-        tr.innerHTML = `
-          <td class="mono">${esc(r.pid)}</td>
-          <td>${esc(r.designer || '')}</td>
-          <td>${esc(r.assigned_merch || '')}</td>
-          <td><span class="pill ${pillClass}">${esc(r.status || '')}</span></td>
-          <td>${esc(r.first_cs_preview || '')}</td>
-          <td class="mono">${esc(r.first_cs_ts_ist || '')}</td>
-          <td>${esc(r.latest_cs_preview || '')}</td>
-          <td class="mono">${esc(r.cs_ts_ist || '')}</td>
-        `;
-        tbody.appendChild(tr);
-      }
-
-      // CSV download
-      const csv = toCsv(rows);
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      downloadBtn.disabled = false;
-      downloadBtn.onclick = () => {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `open_queries_${new Date().toISOString().slice(0,10)}.csv`;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(()=>URL.revokeObjectURL(url), 0);
-      };
-
-      statusSpan.textContent = 'Done';
-    } catch (err) {
-      console.error(err);
-      alert('Error: ' + err.message);
-      statusSpan.textContent = 'Error';
-    } finally {
-      processBtn.disabled = false;
+    // Render table
+    for(const r of summaryRows){
+      const tr=document.createElement('tr');
+      const pillClass = r.status.startsWith('Open') ? 'pill-breach' : 'pill-open';
+      tr.innerHTML=`
+        <td class="mono">${esc(r.pid)}</td>
+        <td>${esc(r.designer||'')}</td>
+        <td>${esc(r.assigned_merch||'')}</td>
+        <td><span class="pill ${pillClass}">${esc(r.status)}</span></td>
+        <td>${esc(r.first_cs_preview||'')}</td>
+        <td class="mono">${esc(r.first_cs_ts_ist||'')}</td>
+        <td>${esc(r.latest_cs_preview||'')}</td>
+        <td class="mono">${esc(r.cs_ts_ist||'')}</td>
+      `;
+      document.getElementById('tbody').appendChild(tr);
     }
-  });
+
+    // Stats
+    document.getElementById('statTotal').textContent = summaryRows.length;
+    document.getElementById('statOpen').textContent = openCount;
+    document.getElementById('statClosed').textContent = closedBreachedCount;
+
+    // CSV download
+    const csv = toCsv(summaryRows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    downloadBtn.disabled=false;
+    downloadBtn.onclick=()=>{
+      const a=document.createElement('a');
+      a.href=url; a.download=`open_queries_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url),0);
+    };
+
+    statusSpan.textContent='Done';
+  }catch(err){
+    console.error(err);
+    alert('Error: '+err.message);
+    statusSpan.textContent='Error';
+  }
+});
 </script>
 </body>
 </html>
