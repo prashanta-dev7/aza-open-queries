@@ -4,97 +4,166 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Aza — Open Queries (WhatsApp)</title>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2.0.6/css/pico.min.css">
+
   <style>
-    :root {
-      --brand:#b60e2a; /* Aza-ish accent */
+    :root{
+      --bg: #f7f7f8;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --brand: #b60e2a;
+      --ok: #1f6f37;        /* closed */
+      --warn: #7a5b00;      /* open */
+      --breach: #8a1c1c;    /* breached */
+      --table-head: #fafafa;
+      --radius: 14px;
+      --shadow: 0 6px 20px rgba(17,24,39,.06);
     }
-    header { margin: 1.5rem 0 1rem; }
-    h1 { font-weight: 700; letter-spacing: .2px; }
-    .accent { color: var(--brand); }
-    .muted { opacity: .7; }
-    .grid { display: grid; gap: 1rem; }
-    @media (min-width: 900px){ .grid-2 { grid-template-columns: 1fr 1fr; } }
-    table { font-variant-numeric: tabular-nums; }
-    .badge { padding: .15rem .5rem; border-radius: 999px; font-size: .75rem; }
-    .badge-open { background: #fff3cd; color: #8a6d3b; }
-    .badge-breached { background: #fde2e1; color: #a12622; }
-    .badge-closed { background: #e7f6ed; color: #216e3a; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    .footer { margin: 2rem 0; font-size: .9rem; }
-    .sr { position: absolute; left: -9999px; }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font: 15px/1.6 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    .container{max-width:1100px; margin:0 auto; padding:24px}
+    header{margin-bottom:18px;}
+    h1{font-size:20px; margin:0; letter-spacing:.2px}
+    .brand-dot{width:12px; height:12px; border-radius:50%; background:var(--brand); display:inline-block; margin-right:8px}
+    .muted{color:var(--muted)}
+    .row{display:grid; grid-template-columns: 1.2fr .8fr; gap:16px}
+    @media (max-width: 820px){ .row{grid-template-columns:1fr} }
+
+    .card{
+      background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
+    .card-body{padding:16px}
+    .card-title{font-weight:600; margin:0 0 10px}
+
+    label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px}
+    input[type="file"], input[type="date"], input[type="number"]{
+      width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:#fff;
+      outline:none; transition:border-color .15s ease;
+    }
+    input:focus{border-color:#cbd5e1}
+
+    .btn{
+      appearance:none; border:0; border-radius:10px; padding:10px 14px; font-weight:600; cursor:pointer;
+      transition: transform .04s ease, filter .15s ease;
+    }
+    .btn:active{transform: translateY(1px)}
+    .btn-primary{background:var(--brand); color:#fff}
+    .btn-primary:hover{filter: brightness(.96)}
+    .btn-secondary{background:#fff; color:#111; border:1px solid var(--border)}
+    .btn-secondary:hover{filter: brightness(.98)}
+    .btn:disabled{opacity:.55; cursor:not-allowed}
+
+    .toolbar{display:flex; gap:8px; align-items:center; margin-top:8px}
+
+    /* Table */
+    .table-wrap{border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#fff}
+    table{width:100%; border-collapse:collapse; font-size:13px}
+    thead th{background:var(--table-head); position:sticky; top:0; z-index:1}
+    th, td{padding:10px 12px; text-align:left; border-bottom:1px solid var(--border); vertical-align:top}
+    tbody tr:hover{background:#fafafa}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace}
+
+    .pill{
+      display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:600
+    }
+    .pill-open{background:#fff3cd; color:var(--warn)}
+    .pill-breach{background:#fde2e1; color:var(--breach)}
+    .pill-closed{background:#e7f5e8; color:var(--ok)}
+
+    .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:12px}
+    .stat{padding:12px; border:1px solid var(--border); border-radius:12px; background:#fff}
+    .stat .k{font-size:20px; font-weight:800}
+    .stat .l{font-size:12px; color:var(--muted)}
+
+    .footer{margin-top:20px; font-size:12px; color:var(--muted)}
   </style>
 </head>
 <body>
-  <main class="container">
+  <div class="container">
     <header>
-      <h1 class="accent">Open Queries — WhatsApp Parser</h1>
-      <p class="muted">Upload the latest WhatsApp chat export (<span class="mono">.txt</span>). Mapping is prebundled from repo <span class="mono">/data</span>. No DB.</p>
+      <h1><span class="brand-dot"></span>Aza — Open Queries (MVP)</h1>
+      <div class="muted" style="margin-top:4px">Upload WhatsApp <span class="mono">.txt</span>. Mapping is read from <span class="mono">/data/dump_*.csv</span>. No DB.</div>
     </header>
 
-    <article>
-      <form id="form" onsubmit="return false">
-        <div class="grid grid-2">
+    <!-- Controls -->
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-body">
+        <div class="row">
           <div>
             <label for="chat">WhatsApp chat export (.txt)</label>
-            <input type="file" id="chat" name="chat" accept=".txt" required>
-            <small>Export from WhatsApp (without media). Android/iOS formats supported.</small>
+            <input type="file" id="chat" accept=".txt" required />
+            <div class="muted" style="font-size:12px; margin-top:6px">Android/iOS exports supported. Without media.</div>
           </div>
-
-          <div>
-            <label for="cutoff">Cutoff date (only parse messages after this)</label>
-            <input type="date" id="cutoff" name="cutoff" required>
-            <small>Default: 2025-09-10 (IST)</small>
-          </div>
-        </div>
-
-        <div class="grid grid-2" style="margin-top: .5rem;">
-          <div>
-            <label for="sla">SLA in minutes</label>
-            <input type="number" id="sla" name="sla" min="1" step="1" value="120" required>
-            <small>Breached if no assigned-merch reply after last CS-like message within SLA.</small>
-          </div>
-          <div>
-            <label>&nbsp;</label>
-            <button id="processBtn" type="button">Process New Messages</button>
+          <div class="row" style="gap:12px">
+            <div>
+              <label for="cutoff">Cutoff date (IST)</label>
+              <input type="date" id="cutoff" required />
+              <div class="muted" style="font-size:12px; margin-top:6px">Default: 2025-09-10</div>
+            </div>
+            <div>
+              <label for="sla">SLA (minutes)</label>
+              <input type="number" id="sla" min="1" step="1" value="120" required />
+            </div>
           </div>
         </div>
-      </form>
-    </article>
 
-    <article id="resultsCard" style="display:none;">
-      <header>
-        <strong>Results</strong>
-        <span id="summary" class="muted" style="margin-left:.5rem;"></span>
-        <div style="float:right;">
-          <button id="downloadCsvBtn" class="secondary">Download CSV</button>
+        <div class="toolbar">
+          <button id="processBtn" class="btn btn-primary">Process</button>
+          <button id="downloadCsvBtn" class="btn btn-secondary" disabled>Download CSV</button>
+          <span id="status" class="muted"></span>
         </div>
-      </header>
 
-      <div class="overflow-auto">
-        <table id="resultsTable">
-          <thead>
-            <tr>
-              <th>PID</th>
-              <th>Designer</th>
-              <th>Assigned Merch</th>
-              <th>Status</th>
-              <th>Age (hh:mm)</th>
-              <th>Latest CS Message</th>
-              <th>CS Time</th>
-              <th>Last Assigned Merch Reply</th>
-              <th>Reply Time</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+        <!-- Tiny stats -->
+        <div class="stats">
+          <div class="stat">
+            <div class="k" id="statTotal">0</div>
+            <div class="l">Total</div>
+          </div>
+          <div class="stat">
+            <div class="k" id="statOpen">0</div>
+            <div class="l">Open</div>
+          </div>
+          <div class="stat">
+            <div class="k" id="statBreached">0</div>
+            <div class="l">Breached</div>
+          </div>
+        </div>
       </div>
-    </article>
+    </div>
 
-    <p class="footer muted">Tip: keep your mapping CSVs in the repo under <span class="mono">/data/</span>. The API auto-loads all files matching <span class="mono">dump_*.csv</span>.</p>
-  </main>
+    <!-- Results -->
+    <div class="card">
+      <div class="card-body">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px">
+          <div class="card-title">Results</div>
+          <div id="summary" class="muted" style="font-size:13px"></div>
+        </div>
+        <div class="table-wrap" style="max-height:65vh; overflow:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>PID</th>
+                <th>Designer</th>
+                <th>Assigned Merch</th>
+                <th>Status</th>
+                <th>Latest CS Message</th>
+                <th>CS Time</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">Keep mapping CSVs inside <span class="mono">/data/</span> (named <span class="mono">dump_*.csv</span>). Backend loads them automatically.</div>
+  </div>
 
   <script>
     // Defaults
@@ -102,70 +171,75 @@
     cutoffInput.value = '2025-09-10';
 
     const processBtn = document.getElementById('processBtn');
-    const resultsCard = document.getElementById('resultsCard');
-    const resultsTableBody = document.querySelector('#resultsTable tbody');
-    const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+    const downloadBtn = document.getElementById('downloadCsvBtn');
+    const statusSpan = document.getElementById('status');
+    const tbody = document.getElementById('tbody');
     const summarySpan = document.getElementById('summary');
+
+    const statTotal = document.getElementById('statTotal');
+    const statOpen = document.getElementById('statOpen');
+    const statBreached = document.getElementById('statBreached');
 
     let lastCsvBlobUrl = null;
 
     processBtn.addEventListener('click', async () => {
       const chatFile = document.getElementById('chat').files[0];
-      if (!chatFile) { alert('Please choose the WhatsApp .txt file.'); return; }
+      if (!chatFile) { alert('Please choose the WhatsApp .txt file'); return; }
 
-      const cutoffDate = document.getElementById('cutoff').value || '2025-09-10';
-      const slaMinutes = parseInt(document.getElementById('sla').value || '120', 10);
+      processBtn.disabled = true; downloadBtn.disabled = true;
+      statusSpan.textContent = 'Processing…';
 
-      const chatText = await chatFile.text();
-
-      processBtn.setAttribute('aria-busy', 'true');
       try {
+        const chatText = await chatFile.text();
+        const cutoffDate = document.getElementById('cutoff').value || '2025-09-10';
+        const slaMinutes = parseInt(document.getElementById('sla').value || '120', 10);
+
         const res = await fetch('/api/backend', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ chatText, cutoffDate, slaMinutes })
         });
 
-        if (!res.ok) {
-          const txt = await res.text();
-          throw new Error(txt || `Request failed: ${res.status}`);
+        if (!res.ok) throw new Error(await res.text());
+        const { rows, csv, meta } = await res.json();
+
+        // Stats
+        const total = rows?.length || 0;
+        const openCount = rows.filter(r => (r.status||'').toLowerCase().startsWith('open')).length;
+        const breachedCount = rows.filter(r => (r.status||'').toLowerCase().includes('breach')).length;
+
+        statTotal.textContent = total;
+        statOpen.textContent = openCount;
+        statBreached.textContent = breachedCount;
+
+        summarySpan.textContent = `Cutoff: ${cutoffDate} • SLA: ${slaMinutes} min • Mapping: ${meta?.mappingCount ?? 0} PIDs`;
+
+        // Table
+        tbody.innerHTML = '';
+        for (const r of rows) {
+          const tr = document.createElement('tr');
+
+          const pillClass = r.status?.toLowerCase().includes('breach') ? 'pill-breach'
+                           : r.status?.toLowerCase().startsWith('open') ? 'pill-open'
+                           : 'pill-closed';
+
+          tr.innerHTML = `
+            <td class="mono">${esc(r.pid)}</td>
+            <td>${esc(r.designer || '')}</td>
+            <td>${esc(r.assigned_merch || '')}</td>
+            <td><span class="pill ${pillClass}">${esc(r.status || '')}</span></td>
+            <td>${esc(r.latest_cs_preview || '')}</td>
+            <td class="mono">${esc(r.cs_ts_ist || '')}</td>
+          `;
+          tbody.appendChild(tr);
         }
 
-        const { rows, csv } = await res.json();
-
-        // update table
-        resultsTableBody.innerHTML = '';
-        const fmt = (s)=> s==null ? '' : s;
-        const badge = (status) => {
-          const s = (status||'').toLowerCase();
-          const cls = s.includes('breach') ? 'badge-breached' : (s.includes('open') ? 'badge-open' : 'badge-closed');
-          return `<span class="badge ${cls}">${status}</span>`;
-        };
-        rows.forEach(r => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="mono">${fmt(r.pid)}</td>
-            <td>${fmt(r.designer)}</td>
-            <td>${fmt(r.assigned_merch)}</td>
-            <td>${badge(fmt(r.status))}</td>
-            <td class="mono">${fmt(r.age_hhmm)}</td>
-            <td>${fmt(r.latest_cs_preview || '').replace(/</g,'&lt;')}</td>
-            <td class="mono">${fmt(r.cs_ts_ist)}</td>
-            <td>${fmt(r.last_merch_preview || '').replace(/</g,'&lt;')}</td>
-            <td class="mono">${fmt(r.merch_ts_ist)}</td>
-            <td>${fmt(r.notes || '')}</td>
-          `;
-          resultsTableBody.appendChild(tr);
-        });
-
-        summarySpan.textContent = `Total: ${rows.length} • Open: ${rows.filter(x => (x.status||'').toLowerCase().startsWith('open')).length}`;
-
-        // CSV download
+        // CSV
         if (lastCsvBlobUrl) URL.revokeObjectURL(lastCsvBlobUrl);
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
         lastCsvBlobUrl = URL.createObjectURL(blob);
-
-        downloadCsvBtn.onclick = () => {
+        downloadBtn.disabled = false;
+        downloadBtn.onclick = () => {
           const a = document.createElement('a');
           a.href = lastCsvBlobUrl;
           a.download = `open_queries_${new Date().toISOString().slice(0,10)}.csv`;
@@ -174,14 +248,21 @@
           document.body.removeChild(a);
         };
 
-        resultsCard.style.display = '';
+        statusSpan.textContent = 'Done';
       } catch (err) {
         console.error(err);
         alert('Error: ' + err.message);
+        statusSpan.textContent = 'Error';
       } finally {
-        processBtn.removeAttribute('aria-busy');
+        processBtn.disabled = false;
       }
     });
+
+    function esc(s){
+      return (s ?? '').toString()
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;');
+    }
   </script>
 </body>
 </html>
