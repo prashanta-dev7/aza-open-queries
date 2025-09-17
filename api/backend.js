@@ -14,7 +14,7 @@ function parseCsvRobust(text) {
     const c = text[i];
     if (inQ) {
       if (c === '"') {
-        if (text[i+1] === '"') { field += '"'; i += 2; continue; }
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
         inQ = false; i++; continue;
       } else { field += c; i++; continue; }
     } else {
@@ -34,13 +34,10 @@ function loadMappingFromCsvText(csvText) {
   if (!rows.length) return new Map();
   const header = rows[0].map(h => (h || '').toLowerCase().trim());
   const idx = {
-    pid: header.indexOf('pid') !== -1 ? header.indexOf('pid') :
-         header.indexOf('product_id'),
-    designer: header.indexOf('designer_name') !== -1 ? header.indexOf('designer_name') :
-              header.indexOf('designer'),
+    pid: header.indexOf('pid') !== -1 ? header.indexOf('pid') : header.indexOf('product_id'),
+    designer: header.indexOf('designer_name') !== -1 ? header.indexOf('designer_name') : header.indexOf('designer'),
     merch: header.indexOf('merch_name') !== -1 ? header.indexOf('merch_name') :
-           header.indexOf('merch') !== -1 ? header.indexOf('merch') :
-           header.indexOf('merchandiser'),
+           header.indexOf('merch') !== -1 ? header.indexOf('merch') : header.indexOf('merchandiser'),
   };
   const map = new Map();
   for (let r = 1; r < rows.length; r++) {
@@ -93,10 +90,9 @@ async function loadMappingOnce() {
 
 /* ---------------- WhatsApp parsing ---------------- */
 
-// Supports:
-//  "17/10/2024, 9:40 pm - Name: Text"
-//  "[17/10/2024, 9:40 pm] Name: Text"
-//  "17/10/2024, 21:40 - Name: Text"
+// Android: "17/10/2024, 9:40 pm - Name: Text"
+// iOS:     "[17/10/2024, 9:40 pm] Name: Text"
+// 24h:     "17/10/2024, 21:40 - Name: Text"
 const RE_ANDROID = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4}),\s+(\d{1,2}):(\d{2})\s*(am|pm)?\s*-\s([^:]+):\s([\s\S]*)$/i;
 const RE_IOS     = /^\[(\d{1,2})\/(\d{1,2})\/(\d{2,4}),\s+(\d{1,2}):(\d{2})\s*(am|pm)?\]\s([^:]+):\s([\s\S]*)$/i;
 
@@ -132,17 +128,7 @@ function extractPids(text) {
   return Array.from(out);
 }
 
-function isLikelyCsMessage(text) {
-  const t = (text || '').toLowerCase();
-  const cues = [
-    '?','any update','please update','pls update','need','possible','price','lead time',
-    'can we','please confirm','pls confirm','update?','any updates','status','dispatch','deliver',
-    'photo','video','images','material','size','timeline'
-  ];
-  return cues.some(c => t.includes(c)) || /\?\s*$/.test(t);
-}
-
-/* ---------------- Core ----------------------------------- */
+/* ---------------- Core per SLA rule (next mention must be different sender) ---------------- */
 
 function buildPidTimelines(msgs) {
   const map = new Map(); // pid -> [ msg ]
@@ -158,60 +144,70 @@ function buildPidTimelines(msgs) {
   return map;
 }
 
-function senderMatchesMerch(sender, merchName) {
-  const norm = s => (s||'').toLowerCase().replace(/\s+/g,' ').replace(/[^\p{L}\p{N}\s]/gu,'').trim();
-  const s = norm(sender), m = norm(merchName);
-  if (!s || !m) return false;
-  if (s.includes(m) || m.includes(s)) return true;
-  const toks = m.split(' ').filter(Boolean);
-  const hit = toks.filter(t => s.includes(t)).length;
-  return hit >= Math.max(1, Math.ceil(toks.length*0.6));
-}
-
 function summarizeRows(pidMap, timelines, now, slaMinutes) {
   const rows = [];
-  for (const [pid, msgs] of timelines.entries()) {
+  const slaMs = Math.max(1, parseInt(slaMinutes || 60, 10)) * 60 * 1000;
+
+  for (const [pid, arr] of timelines.entries()) {
+    if (!arr.length) continue;
+
     const meta = pidMap.get(pid) || { designer: '', merch: '' };
-    const assignedMerch = meta.merch || '';
-    // annotate
-    const ann = msgs.map(m => ({
-      ...m,
-      isCsLike: isLikelyCsMessage(m.text),
-      isAssignedMerch: senderMatchesMerch(m.sender, assignedMerch)
-    }));
-    const latestCs = [...ann].reverse().find(x => x.isCsLike);
-    const latestAssigned = [...ann].reverse().find(x => x.isAssignedMerch);
 
-    let status = 'Closed';
-    let csTs = null;
-    let latestCsPreview = '';
+    // First mention after cutoff
+    const first = arr[0];
+    // Latest mention overall (for preview only)
+    const latest = arr[arr.length - 1];
+    // Very next mention after first (if any)
+    const next = arr.length >= 2 ? arr[1] : null;
 
-    if (latestCs) {
-      csTs = latestCs.ts;
-      latestCsPreview = (latestCs.text || '').slice(0,160);
-      if (!latestAssigned || latestAssigned.ts <= latestCs.ts) {
-        status = 'Open';
-        const age = now - csTs;
-        if (age > slaMinutes * 60 * 1000) status = 'Open — Breached';
+    let include = false;
+    let status = 'Open';
+
+    if (next) {
+      const gap = next.ts - first.ts;
+
+      // Only count as a "reply" if the next mention is from a DIFFERENT sender
+      if (next.sender !== first.sender) {
+        if (gap > slaMs) {
+          include = true;                 // reply arrived after SLA
+          status = 'Open — Breached';
+        } else {
+          include = false;                // reply within SLA -> exclude
+          status = 'Closed';
+        }
+      } else {
+        // Same sender again: still open; include only if age > SLA
+        const age = now - first.ts;
+        include = age > slaMs;
+        status = include ? 'Open — Breached' : 'Open';
       }
+    } else {
+      // No next mention at all; include only if age > SLA
+      const age = now - first.ts;
+      include = age > slaMs;
+      status = include ? 'Open — Breached' : 'Open';
     }
+
+    if (!include) continue;
 
     rows.push({
       pid,
       designer: meta.designer || '',
-      assigned_merch: assignedMerch || '',
+      assigned_merch: meta.merch || '',
       status,
-      latest_cs_preview: latestCsPreview,
-      cs_ts_ist: csTs ? fmtIst(csTs) : ''
+      first_cs_preview: (first.text || '').slice(0,160),
+      first_cs_ts_ist: fmtIst(first.ts),
+      latest_cs_preview: (latest.text || '').slice(0,160),
+      cs_ts_ist: fmtIst(latest.ts)
     });
   }
 
-  // Sort: breached → open → closed, then newest CS first
+  // Sort: breached first, then by newest first-mention
   rows.sort((a,b) => {
-    const rank = s => s.startsWith('Open — Breached') ? 0 : s.startsWith('Open') ? 1 : 2;
+    const rank = s => s.startsWith('Open — Breached') ? 0 : 1;
     const r = rank(a.status) - rank(b.status);
     if (r !== 0) return r;
-    return (b.cs_ts_ist || '').localeCompare(a.cs_ts_ist || '');
+    return (b.first_cs_ts_ist || '').localeCompare(a.first_cs_ts_ist || '');
   });
 
   return rows;
@@ -220,20 +216,18 @@ function summarizeRows(pidMap, timelines, now, slaMinutes) {
 /* ---------------- Handler ------------------------------- */
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.status(405).send('Method Not Allowed'); return;
-  }
+  if (req.method !== 'POST') { res.status(405).send('Method Not Allowed'); return; }
   try {
     await loadMappingOnce();
 
     const { chatText, cutoffDate, slaMinutes } = req.body || {};
-    if (!chatText || !cutoffDate) {
-      res.status(400).send('chatText and cutoffDate are required');
-      return;
-    }
+    if (!chatText || !cutoffDate) { res.status(400).send('chatText and cutoffDate are required'); return; }
+
+    // Only analyze messages strictly AFTER the cutoff date (00:00 IST)
     const cutoff = new Date(`${cutoffDate}T00:00:00.000+05:30`);
     if (isNaN(cutoff)) { res.status(400).send('Invalid cutoffDate'); return; }
-    const sla = Math.max(1, parseInt(slaMinutes ?? 120, 10));
+
+    const sla = Math.max(1, parseInt(slaMinutes ?? 60, 10));
     const now = new Date();
 
     // Parse WhatsApp lines (Android & iOS)
@@ -257,8 +251,8 @@ export default async function handler(req, res) {
     const timelines = buildPidTimelines(msgs);
     const rows = summarizeRows(PID_MAP || new Map(), timelines, now, sla);
 
-    // CSV with the same 6 columns shown in UI
-    const headers = ['pid','designer','assigned_merch','status','latest_cs_preview','cs_ts_ist'];
+    // CSV with the same columns the UI shows
+    const headers = ['pid','designer','assigned_merch','status','first_cs_preview','first_cs_ts_ist','latest_cs_preview','cs_ts_ist'];
     const esc = (v)=> {
       const s = (v ?? '').toString();
       return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
