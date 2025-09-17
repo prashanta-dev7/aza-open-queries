@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "api/backend.js": {
+      "runtime": "nodejs",
+      "includeFiles": "data/**"
+    }
+  }
+}
