@@ -1,13 +1,17 @@
 // api/backend.js
-// Vercel — Node runtime so we can read /data/*.csv
 export const config = { runtime: 'nodejs' };
 
 import fs from 'fs';
 import path from 'path';
 
-/* ---------------- CSV parsing (robust) ---------------- */
+/* ---------------- CSV parsing (robust + BOM) ---------------- */
+
+function stripBOM(s) {
+  return s && s.charCodeAt(0) === 0xFEFF ? s.slice(1) : s;
+}
 
 function parseCsvRobust(text) {
+  text = stripBOM(text || '');
   const rows = [];
   let i = 0, field = '', row = [], inQ = false;
   while (i < text.length) {
@@ -32,7 +36,7 @@ function parseCsvRobust(text) {
 function loadMappingFromCsvText(csvText) {
   const rows = parseCsvRobust(csvText);
   if (!rows.length) return new Map();
-  const header = rows[0].map(h => (h || '').toLowerCase().trim());
+  const header = rows[0].map(h => stripBOM((h || '')).toLowerCase().trim());
   const idx = {
     pid: header.indexOf('pid') !== -1 ? header.indexOf('pid') : header.indexOf('product_id'),
     designer: header.indexOf('designer_name') !== -1 ? header.indexOf('designer_name') : header.indexOf('designer'),
@@ -61,7 +65,8 @@ async function loadMappingOnce() {
   if (MAPPING_READY) return MAPPING_READY;
   MAPPING_READY = new Promise((resolve) => {
     try {
-      const dataDir = path.join(process.cwd(), 'data');
+      // Safer absolute path; works in Vercel function bundle
+      const dataDir = path.resolve(process.cwd(), 'data');
       const files = fs.existsSync(dataDir)
         ? fs.readdirSync(dataDir).filter(f => /^dump_.*\.csv$/i.test(f))
         : [];
@@ -148,16 +153,19 @@ function summarizeRows(pidMap, timelines, now, slaMinutes) {
   const rows = [];
   const slaMs = Math.max(1, parseInt(slaMinutes || 60, 10)) * 60 * 1000;
 
+  let matchedPidCount = 0; // debug: how many PIDs from chat exist in mapping
+
   for (const [pid, arr] of timelines.entries()) {
     if (!arr.length) continue;
 
     const meta = pidMap.get(pid) || { designer: '', merch: '' };
+    if (meta.designer || meta.merch) matchedPidCount++; // debug counter
 
     // First mention after cutoff
     const first = arr[0];
-    // Latest mention overall (for preview only)
+    // Latest mention overall (for preview)
     const latest = arr[arr.length - 1];
-    // Very next mention after first (if any)
+    // Next mention after first (if any)
     const next = arr.length >= 2 ? arr[1] : null;
 
     let include = false;
@@ -166,10 +174,10 @@ function summarizeRows(pidMap, timelines, now, slaMinutes) {
     if (next) {
       const gap = next.ts - first.ts;
 
-      // Only count as a "reply" if the next mention is from a DIFFERENT sender
+      // Only count "reply" if next mention is from a DIFFERENT sender
       if (next.sender !== first.sender) {
         if (gap > slaMs) {
-          include = true;                 // reply arrived after SLA
+          include = true;                 // reply after SLA
           status = 'Open — Breached';
         } else {
           include = false;                // reply within SLA -> exclude
@@ -182,7 +190,7 @@ function summarizeRows(pidMap, timelines, now, slaMinutes) {
         status = include ? 'Open — Breached' : 'Open';
       }
     } else {
-      // No next mention at all; include only if age > SLA
+      // No next mention; include only if age > SLA
       const age = now - first.ts;
       include = age > slaMs;
       status = include ? 'Open — Breached' : 'Open';
@@ -210,7 +218,7 @@ function summarizeRows(pidMap, timelines, now, slaMinutes) {
     return (b.first_cs_ts_ist || '').localeCompare(a.first_cs_ts_ist || '');
   });
 
-  return rows;
+  return { rows, matchedPidCount };
 }
 
 /* ---------------- Handler ------------------------------- */
@@ -249,7 +257,7 @@ export default async function handler(req, res) {
     }
 
     const timelines = buildPidTimelines(msgs);
-    const rows = summarizeRows(PID_MAP || new Map(), timelines, now, sla);
+    const { rows, matchedPidCount } = summarizeRows(PID_MAP || new Map(), timelines, now, sla);
 
     // CSV with the same columns the UI shows
     const headers = ['pid','designer','assigned_merch','status','first_cs_preview','first_cs_ts_ist','latest_cs_preview','cs_ts_ist'];
@@ -262,7 +270,14 @@ export default async function handler(req, res) {
     ).join('\n');
 
     res.setHeader('Content-Type', 'application/json');
-    res.status(200).json({ rows, csv, meta: { mappingCount: PID_MAP?.size || 0 } });
+    res.status(200).json({
+      rows,
+      csv,
+      meta: {
+        mappingCount: PID_MAP?.size || 0,   // total unique PIDs loaded from CSV
+        matchedPidCount                      // how many PIDs from this chat matched mapping
+      }
+    });
   } catch (e) {
     console.error(e);
     res.status(500).send('Internal Server Error');
