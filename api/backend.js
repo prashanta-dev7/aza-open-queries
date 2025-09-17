@@ -1,12 +1,8 @@
 // api/backend.js
-// No fs, no env vars required. Auto-fetches mapping from the same PUBLIC GitHub repo:
-//
-// Tries in order (raw URLs):
-//   1) .../<owner>/<repo>/<branch>/pid_mapping_combined.csv
-//   2) .../<owner>/<repo>/<branch>/data/pid_mapping_combined.csv
-//
-// Works when your repo is public and deployed via Vercel Git integration.
+// Two-file upload flow: mappingCsvText + chatText come in the request body.
+// No filesystem, no env vars, no vercel.json required.
 
+/* ---------- helpers ---------- */
 function stripBOM(s){ return s && s.charCodeAt(0)===0xFEFF ? s.slice(1): s; }
 function escCsv(v){ const s=(v??'').toString(); return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; }
 
@@ -36,7 +32,7 @@ function loadMappingFromCsvText(csvText){
   if(!rows.length) return new Map();
   const header = rows[0].map(h => stripBOM((h||'')).toLowerCase().trim());
 
-  // Your final headers + common fallbacks
+  // Your final headers + fallbacks
   const idx = {
     pid:
       header.indexOf('pid') !== -1 ? header.indexOf('pid') :
@@ -65,45 +61,6 @@ function loadMappingFromCsvText(csvText){
   }
   return map;
 }
-
-/* ---------- Mapping: auto raw GitHub (public) ---------- */
-async function loadMappingAutoFromRepo(){
-  const owner = process.env.VERCEL_GIT_REPO_OWNER;
-  const repo  = process.env.VERCEL_GIT_REPO_SLUG;
-  const ref   = process.env.VERCEL_GIT_COMMIT_REF || 'main';
-
-  if(!owner || !repo){
-    console.log('[mapping] Vercel repo envs not available; mapping will be empty.');
-    return new Map();
-  }
-
-  const base = `https://raw.githubusercontent.com/${owner}/${repo}/${ref}`;
-  const candidates = [
-    `${base}/pid_mapping_combined.csv`,
-    `${base}/data/pid_mapping_combined.csv`,
-  ];
-
-  for (const url of candidates) {
-    try {
-      const res = await fetch(url, { headers: { 'Accept': 'text/plain' } });
-      if (!res.ok) { console.log(`[mapping] ${url} -> ${res.status}`); continue; }
-      const txt = await res.text();
-      const map = loadMappingFromCsvText(txt);
-      if (map.size > 0) {
-        console.log(`[mapping] loaded from ${url} -> ${map.size} PIDs`);
-        return map;
-      }
-    } catch (e) {
-      console.log(`[mapping] fetch error for ${url}: ${e.message}`);
-    }
-  }
-  console.log('[mapping] no mapping file found; Designer/Merch will be blank.');
-  return new Map();
-}
-
-let PID_MAP = null;
-let LOAD_ONCE;
-async function ensureMapping(){ if(!LOAD_ONCE){ LOAD_ONCE = loadMappingAutoFromRepo(); } PID_MAP = await LOAD_ONCE; return PID_MAP; }
 
 /* ---------- WhatsApp parsing ---------- */
 const RE_ANDROID = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4}),\s+(\d{1,2}):(\d{2})\s*(am|pm)?\s*-\s([^:]+):\s([\s\S]*)$/i;
@@ -195,19 +152,21 @@ function summarizeRows(pidMap, timelines, now, slaMinutes){
 export default async function handler(req, res){
   if(req.method!=='POST'){ res.status(405).send('Method Not Allowed'); return; }
   try{
-    const PID_MAP_READY = await ensureMapping();
+    const { chatText, mappingCsvText, cutoffDate, slaMinutes } = req.body || {};
+    if(!chatText || !mappingCsvText || !cutoffDate){
+      res.status(400).send('chatText, mappingCsvText and cutoffDate are required'); return;
+    }
 
-    const { chatText, cutoffDate, slaMinutes } = req.body || {};
-    if(!chatText || !cutoffDate){ res.status(400).send('chatText and cutoffDate are required'); return; }
-
-    // Only analyze messages strictly AFTER the cutoff date (00:00 IST)
     const cutoff = new Date(`${cutoffDate}T00:00:00.000+05:30`);
     if(isNaN(cutoff)) { res.status(400).send('Invalid cutoffDate'); return; }
 
     const sla = Math.max(1, parseInt(slaMinutes ?? 60, 10));
     const now = new Date();
 
-    // Parse WhatsApp lines (Android & iOS)
+    // Parse mapping from the uploaded CSV
+    const PID_MAP = loadMappingFromCsvText(mappingCsvText);
+
+    // Parse WhatsApp lines (Android & iOS), only AFTER cutoff
     const msgs=[];
     for(const raw of chatText.split(/\r?\n/)){
       let m = RE_ANDROID.exec(raw);
@@ -226,7 +185,7 @@ export default async function handler(req, res){
     }
 
     const timelines = buildPidTimelines(msgs);
-    const { rows, matchedPidCount } = summarizeRows(PID_MAP_READY || new Map(), timelines, now, sla);
+    const { rows, matchedPidCount } = summarizeRows(PID_MAP || new Map(), timelines, now, sla);
 
     const headers=['pid','designer','assigned_merch','status','first_cs_preview','first_cs_ts_ist','latest_cs_preview','cs_ts_ist'];
     const csv = [headers.join(',')].concat(rows.map(r=>headers.map(h=>escCsv(r[h])).join(','))).join('\n');
@@ -235,7 +194,7 @@ export default async function handler(req, res){
     res.status(200).json({
       rows, csv,
       meta: {
-        mappingCount: PID_MAP_READY?.size || 0,
+        mappingCount: PID_MAP?.size || 0,
         matchedPidCount
       }
     });
