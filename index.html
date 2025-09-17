@@ -2,65 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Aza — Open Queries</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: '#b60e2a',        /* Aza-ish accent */
-            brandMuted: '#fbe9ec',
-          },
-          fontFamily: {
-            sans: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'Arial', 'sans-serif'],
-            mono: ['ui-monospace','SFMono-Regular','Menlo','Monaco','Consolas','monospace'],
-          }
-        }
-      },
-      darkMode: 'media'
-    }
-  </script>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Aza — Open Queries (WhatsApp)</title>
+
+  <!-- Minimal, zero-build styling -->
   <style>
-    .dropzone.dragover { border-color: #b60e2a; background-color: #fef2f3; }
-    .status-pill { @apply px-2 py-1 rounded-full text-xs font-medium; }
-    .status-open { background:#fff3cd; color:#7a5b00; }
-    .status-breached { background:#fde2e1; color:#8a1c1c; }
-    .status-closed { background:#e7f6ed; color:#216e3a; }
-    .btn { @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-semibold transition; }
-    .btn-primary { background:#b60e2a; color:#fff; }
-    .btn-primary:hover { filter: brightness(0.95); }
-    .btn-secondary { @apply border border-gray-300 bg-white text-gray-900; }
-    .btn-ghost { @apply text-gray-700 hover:bg-gray-100; }
-    .card { @apply rounded-2xl border border-gray-200 bg-white/80 backdrop-blur p-5; }
-    .stat { @apply text-2xl font-bold; }
-    .label { @apply text-sm text-gray-600; }
-    .sticky-head th { position: sticky; top: 0; background: white; z-index: 1; }
-  </style>
-</head>
-<body class="bg-gray-50 text-gray-900 font-sans">
-  <!-- Header -->
-  <header class="border-b border-gray-200 bg-white">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="h-8 w-8 rounded-lg bg-brand"></div>
-        <h1 class="text-lg font-semibold tracking-tight">Aza — Open Queries <span class="text-brand">MVP</span></h1>
-      </div>
-      <a href="#" class="text-sm text-gray-500 hover:text-gray-700">Docs</a>
-    </div>
-  </header>
-
-  <!-- Main -->
-  <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Left: Controls -->
-    <section class="lg:col-span-1 space-y-6">
-      <div class="card">
-        <h2 class="text-base font-semibold mb-4">Upload & Settings</h2>
-
-        <!-- Dropzone -->
-        <div id="dropzone" class="dropzone border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer">
-          <input id="chat" type="file" accept=".txt" class="sr-only" />
-          <p class="font-medium">Drag & drop WhatsApp <code class="
+    :root{
+      --bg: #f7f7f8;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --brand: #b60e2a;
+      --brand-ink: #7f0a1e;
+      --ok: #1f6f37;        /* closed */
+      --warn: #7a5b00;      /* open */
+      --breach: #8a1c1c;    /* breached */
+      --table-head: #fafafa;
+      --radius: 14px;
+      --shadow: 0 6px 20px rgba(17,24,39,.06);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font: 15px/1.6 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    .container{max-width:1100px; margin:0 auto; padding:24px}
+    header{
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:18px;
