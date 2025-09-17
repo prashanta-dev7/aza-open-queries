@@ -1,8 +1,0 @@
-{
-  "functions": {
-    "api/backend.js": {
-      "runtime": "nodejs20.x",
-      "includeFiles": "data/**"
-    }
-  }
-}
